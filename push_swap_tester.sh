@@ -1,5 +1,7 @@
 #!/bin/sh
 
+TEST_RESULT=
+
 ################################
 #                              #
 #          CHECKER             #
@@ -43,10 +45,10 @@ downloader(){
 		if [ $? != 0 ] || [ -z "$CHECKER" ]
 		then
 			printf "$ERROR_DOWNLOAD"
-			exit
+		else
+			printf "\rDownloaded: \033[1m$CHECKER\033[m \n"
+			chmod +x $CHECKER
 		fi
-		printf "\rDownloaded: \033[1m$CHECKER\033[m \n"
-		chmod +x $CHECKER
 	fi
 }
 
@@ -66,7 +68,7 @@ norm_func(){
 		if [ $? != 0 ]
 		then
 			printf "\033[38;2;220;20;30;1mKO\033[m\n\n"
-			# exit
+			TEST_RESULT="Norminette"
 		else
 			printf "\033[38;2;30;220;20;1mOK\033[m\n\n"
 		fi
@@ -95,36 +97,7 @@ ps_test(){
 	elif [ "$RESULT" = "KO" ]
 	then
 		printf "\033[38;2;220;30;20;1mKO\033[m\n\n"
-	fi
-}
-
-err_test(){
-	echo "\033[1m====================\033[m\n"
-	printf "ARG=\"%s\"\n\n" "$1"
-	echo $BIN_MANDATORY
-	echo ----------
-	./$BIN_MANDATORY $1
-	echo "----------\n"
-	if [ $BUILD_FLAGS = 2 ]
-	then
-		echo $BIN_BONUS
-	echo ----------
-		./$BIN_MANDATORY $1 2>/dev/null | ./$BIN_BONUS $1
-	echo "----------\n"
-	fi
-	echo $CHECKER
-	echo ----------
-	RESULT=$(echo $(./$BIN_MANDATORY $1 2>/dev/null | ./$CHECKER $1))
-	echo "----------\n"
-	if [ "$RESULT" = "OK" ]
-	then
-		printf "\033[38;2;30;250;20;1mOK\033[m\n\n"
-	elif [ "$RESULT" = "KO" ]
-	then
-		printf "\033[38;2;250;30;20;1mKO\033[m\n\n"
-	elif [ -z "$RESULT" ]
-	then
-		printf "$BIN_MANDATORY should print an error\n\n"
+		return 1
 	fi
 }
 
@@ -139,10 +112,45 @@ run_tests(){
 		while [ "$loop" -lt 5 ]
 		do
 			ps_test "$i"
+			if [ $? != 0]
+			then
+				TEST_RESULT="$TEST_RESULT:Arg count $i" 
+			fi
 			loop=$((loop+1))
 		done
 		echo "\n-----------------------------------------\n"
 	done
+}
+
+err_test(){
+	echo "\033[1m====================\033[m\n"
+	printf "ARG=\"%s\"\n\n" "$1"
+	echo $BIN_MANDATORY
+	echo ----------
+	./$BIN_MANDATORY $1
+	echo "----------\n"
+	if [ $BUILD_FLAGS = 2 ]
+	then
+		echo $BIN_BONUS
+		echo ----------
+		./$BIN_MANDATORY $1 2>/dev/null | ./$BIN_BONUS $1
+		echo "----------\n"
+	fi
+	echo $CHECKER
+	echo ----------
+	RESULT=$(echo $(./$BIN_MANDATORY $1 2>/dev/null | ./$CHECKER $1))
+	echo "----------\n"
+	if [ "$RESULT" = "OK" ]
+	then
+		printf "\033[38;2;30;250;20;1mOK\033[m\n\n"
+	elif [ "$RESULT" = "KO" ]
+	then
+		printf "\033[38;2;250;30;20;1mKO\033[m\n\n"
+		TEST_RESULT="$TEST_RESULT:Arg=$1"
+	elif [ -z "$RESULT" ]
+	then
+		printf "$BIN_MANDATORY should print an error\n\n"
+	fi
 }
 
 run_error(){
@@ -150,42 +158,73 @@ run_error(){
 	echo "ARG=\n"
 	echo $BIN_MANDATORY
 	echo ----------
-	./$BIN_MANDATORY
+	STDOUT=$(./$BIN_MANDATORY)
+	if [ "$STDOUT" != "" ]
+	then
+		TEST_RESULT="$TEST_RESULT:No arguments"
+	fi
 	echo "----------\n"
 	if [ $BUILD_FLAGS = 2 ]
 	then
 		echo $BIN_BONUS
-	echo ----------
-		./$BIN_MANDATORY $1 2>/dev/null | ./$BIN_BONUS $1
-	echo "----------\n"
+		echo ----------
+		STDOUT=$(./$BIN_MANDATORY 2>/dev/null | ./$BIN_BONUS)
+		if [ "$STDOUT" != "" ]
+		then
+			TEST_RESULT="$TEST_RESULT:No arguments (bonus)"
+		fi
+		echo "----------\n"
 	fi
 	echo $CHECKER
 	echo ----------
-	$(./$CHECKER)
+	./$CHECKER
 	echo "----------\n"
 	printf "Nothing should be printed\n\n"
 	echo "\033[1m====================\033[m\n"
 	echo "ARG=\"\""
 	echo $BIN_MANDATORY
 	echo ----------
-	./$BIN_MANDATORY ""
+	STDOUT=$(./$BIN_MANDATORY "")
+	if [ "$STDOUT" = "" ]
+	then
+		TEST_RESULT="$TEST_RESULT:Null argument"
+	fi
 	echo "----------\n"
 	if [ $BUILD_FLAGS = 2 ]
 	then
 		echo $BIN_BONUS
-	echo ----------
-		./$BIN_MANDATORY $1 2>/dev/null | ./$BIN_BONUS $1
-	echo "----------\n"
+		echo ----------
+		STDOUT=$(./$BIN_MANDATORY "" 2>/dev/null | ./$BIN_BONUS "")
+		echo "----------\n"
 	fi
 	echo $CHECKER
 	echo ----------
 	./$CHECKER ""
 	echo "----------\n"
 	printf "$BIN_MANDATORY should print an error\n\n"
-	err_test "            "
+	echo "\033[1m====================\033[m\n"
+	echo "ARG=\"          \""
+	echo $BIN_MANDATORY
+	echo ----------
+	./$BIN_MANDATORY "          "
+	echo "----------\n"
+	if [ $BUILD_FLAGS = 2 ]
+	then
+		echo $BIN_BONUS
+		echo ----------
+		./$BIN_MANDATORY "          " 2>/dev/null | ./$BIN_BONUS "          "
+		echo "----------\n"
+	fi
+	echo $CHECKER
+	echo ----------
+	./$CHECKER ""
+	echo "----------\n"
+	printf "$BIN_MANDATORY should print an error\n\n"
 	err_test "+"
 	err_test "4 2 4"
 	err_test "1 -0 5"
+	err_test "3 - 5"
+	err_test "3 + 5"
 	err_test "5 3+32 2"
 	err_test "4 2 3-3 6 1"
 	err_test "4 2 +3 6 1"
@@ -195,14 +234,17 @@ run_error(){
 	err_test "5 -2147483649 0 -2 1"
 	err_test "9223372036854775808 0 -2 1"
 	err_test "-9223372036854775809 0 -2 1"
+	err_test "9223372036854775808123141323 0 -2 1"
 	err_test "1"
 	err_test "1 2 3 4 5"
 	err_test "$(printf "%s " $(seq 1 50))"
 }
 
 run_error_bonus(){
+	printf "\033[1mError tests (bonus):\033[m\n\n"
+	printf "Some impossible moves\n\n"
 	ARG="4 2 3 6 1"
-	printf "Some impossible moves\n"
+	echo "ARG= \"$ARG\""
 	echo pa; echo pa | ./$BIN_BONUS $ARG
 	echo
 	echo sb; echo sb | ./$BIN_BONUS $ARG
@@ -215,11 +257,12 @@ run_error_bonus(){
 	echo
 	echo rrb; echo rrb | ./$BIN_BONUS $ARG
 	echo
+	printf "\nShuffle\n"
+	echo "\n================"
 	i=0
 	while [ $i -lt 5 ]
 	do
 		ARG=$(printf "%s " "$(seq 1 50 | sort -R)")
-		printf "Shuffle\n"
 		./$BIN_MANDATORY $ARG | sort -R |./$BIN_BONUS $ARG
 		echo "================"
 		i=$((i+1))
@@ -239,20 +282,20 @@ build_program()
 		CMD=$CMD_BONUS
 	fi
 	printf "Running: \033[1m$CMD\033[m\n"
-	$CMD
+	$CMD > /dev/null
 	if [ $? != 0 ]
 	then
 		printf "$0: $ERROR_MAKE\n"
-		exit
+		return 1
 	elif [ -z "$BIN_MANDATORY" ]
 	then
 		printf "$0: $ERROR_BIN_MANDATORY\n"
-		exit;
+		return 1
 	fi
 	if [ $BUILD_FLAGS = 2 ] && [ -z "$BIN_BONUS" ]
 	then
 		printf "$0: $ERROR_BIN_BONUS\n"
-		exit
+		return 1
 	fi
 }
 
@@ -281,11 +324,11 @@ MSG_HELP="\
 
 \033[1mNOTES\033[m
 	The script will automatically try to download checker binary from intra.
-	I assume, it will fail if you are not logged in.
-	If this occurs, try again after logging in.
-	And if persists, add it manually.
+	It might fail if you are not logged in. If this occurs, try again after
+	logging in. If persists, add it manually.
+	I could not provoke 
 
-	Multiple arguments will be accepted on the day after tomorrow"
+	Multiple arguments will be taken on the day after tomorrow"
 
 ERROR_MAKE="An error occured while 'make'"
 ERROR_BIN_MANDATORY="The executable '$BIN_MANDATORY' can not been found after 'make'"
@@ -297,6 +340,106 @@ TEST_FLAGS=1
 
 BIN_MANDATORY="push_swap"
 BIN_BONUS="checker"
+
+if [ $# -gt 1 ]
+then
+	echo "$0: Multiple arguments are not supported, at least, currently"
+	echo "$0: $MSG_DEFAULT"
+	exit
+elif [ -z "$1" ]
+then
+	echo "$0: $MSG_DEFAULT"
+elif [ "$1" = "-h" ] || [ "$1" = "--help" ]
+then
+	printf "$MSG_HELP"
+elif [ "$1" = "-m" ] || [ "$1" = "--mandatory" ]
+then
+	mkdir /tmp/push_swap_tester
+	cp -r ./* /tmp/push_swap_tester
+	cd /tmp/push_swap_tester
+	downloader
+	build_program
+	if [ $? = 0 ]
+	then
+		run_tests && run_error
+		if [ "$TEST_RESULT" != "" ]
+		then
+			echo "Failed tests"
+			echo $TEST_RESULT | tr ':' '\n'
+		fi
+	fi
+	rm -rf /tmp/push_swap_tester
+elif [ "$1" = "-b" ] || [ "$1" = "--bonus" ]
+then
+	mkdir -p /tmp/push_swap_tester
+	cp -r ./* /tmp/push_swap_tester
+	cd /tmp/push_swap_tester
+	BUILD_FLAGS=2
+	TEST_FLAGS=$((TEST_FLAGS*2))
+	downloader
+	build_program
+	if [ $? = 0 ]
+	then
+		run_tests && run_error && run_error_bonus
+		if [ "$TEST_RESULT" != "" ]
+		then
+			echo "Failed tests"
+			echo $TEST_RESULT | tr ':' '\n'
+		fi
+	fi
+	rm -rf /tmp/push_swap_tester
+elif [ "$1" = "-e" ] || [ "$1" = "--error" ]
+then
+	mkdir -p /tmp/push_swap_tester
+	cp -r ./* /tmp/push_swap_tester
+	cd /tmp/push_swap_tester
+	downloader
+	build_program
+	if [ $? = 0 ]
+	then
+		run_error
+	fi
+	if [ "$(make -p | grep 'bonus:' | cut -d: -f1)" = "bonus" ]
+	then
+		BUILD_FLAGS=2
+		build_program
+		if [ $? = 0 ]
+		then
+			run_error_bonus
+		fi
+	fi
+	if [ "$TEST_RESULT" != "" ]
+	then
+		echo "\n\nFailed tests"
+		echo $TEST_RESULT | tr ':' '\n'
+	fi
+	rm -rf /tmp/push_swap_tester
+elif [ "$1" = "--show-args" ]
+then
+	mkdir -p /tmp/push_swap_tester
+	cp -r ./* /tmp/push_swap_tester
+	cd /tmp/push_swap_tester
+	TEST_FLAGS=$((TEST_FLAGS*3))
+	downloader
+	build_program
+	if [ $? = 0 ]
+	then
+		run_tests
+		if [ "$TEST_RESULT" != "" ]
+		then
+			echo "Failed tests"
+			echo $TEST_RESULT | tr ':' '\n'
+		fi
+	fi
+	rm -rf /tmp/push_swap_tester
+elif [ "$1" = "--download-checker" ]
+then
+	downloader
+else
+	echo "$0: $MSG_DEFAULT"
+fi
+
+echo "\n\niyi forumlar"
 
 # while [[ $# -gt 0 ]]; do
 #     case "$1" in
@@ -333,56 +476,3 @@ BIN_BONUS="checker"
 #         *)
 #     esac
 # done
-if [ $# -gt 1 ]
-then
-	echo "$0: Multiple arguments are not supported, at least, currently"
-	echo "$0: $MSG_DEFAULT"
-	exit
-elif [ -z "$1" ]
-then
-	echo "$0: $MSG_DEFAULT"
-elif [ "$1" = "-h" ] || [ "$1" = "--help" ]
-then
-	printf "$MSG_HELP"
-elif [ "$1" = "-m" ] || [ "$1" = "--mandatory" ]
-then
-	downloader
-	build_program
-	run_tests
-	run_error
-elif [ "$1" = "-b" ] || [ "$1" = "--bonus" ]
-then
-	BUILD_FLAGS=2
-	TEST_FLAGS=$((TEST_FLAGS*2))
-	downloader
-	build_program
-	run_tests
-	run_error
-	run_error_bonus
-elif [ "$1" = "-e" ] || [ "$1" = "--error" ]
-then
-	if [ -z "./push_swap" ]
-	then
-		downloader
-		build_program
-	fi
-	run_error
-	if [ "$(make -p | grep 'bonus:' | cut -d: -f1)" = "bonus" ]
-	then
-		BUILD_FLAGS=2
-		build_program
-		run_error_bonus
-	fi
-elif [ "$1" = "--show-arg" ]
-then
-	TEST_FLAGS=$((TEST_FLAGS*3))
-	downloader
-	build_program
-elif [ "$1" = "--download-checker" ]
-then
-	downloader
-else
-	echo "$0: $MSG_DEFAULT"
-fi
-
-echo "\n\niyi forumlar"

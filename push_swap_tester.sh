@@ -104,8 +104,14 @@ err_test(){
 	echo $BIN_MANDATORY
 	echo ----------
 	./$BIN_MANDATORY $1
-	EXIT_BIN=$?
 	echo "----------\n"
+	if [ $BUILD_FLAGS = 2 ]
+	then
+		echo $BIN_BONUS
+	echo ----------
+		./$BIN_MANDATORY $1 2>/dev/null | ./$BIN_BONUS $1
+	echo "----------\n"
+	fi
 	echo $CHECKER
 	echo ----------
 	RESULT=$(echo $(./$BIN_MANDATORY $1 2>/dev/null | ./$CHECKER $1))
@@ -130,7 +136,7 @@ run_tests(){
 	do
 		printf "ARG count is \033[32;1m$i\033[m\n\n"
 		loop=0
-		while [ "$loop" -le 4 ]
+		while [ "$loop" -lt 5 ]
 		do
 			ps_test "$i"
 			loop=$((loop+1))
@@ -146,6 +152,13 @@ run_error(){
 	echo ----------
 	./$BIN_MANDATORY
 	echo "----------\n"
+	if [ $BUILD_FLAGS = 2 ]
+	then
+		echo $BIN_BONUS
+	echo ----------
+		./$BIN_MANDATORY $1 2>/dev/null | ./$BIN_BONUS $1
+	echo "----------\n"
+	fi
 	echo $CHECKER
 	echo ----------
 	$(./$CHECKER)
@@ -157,6 +170,13 @@ run_error(){
 	echo ----------
 	./$BIN_MANDATORY ""
 	echo "----------\n"
+	if [ $BUILD_FLAGS = 2 ]
+	then
+		echo $BIN_BONUS
+	echo ----------
+		./$BIN_MANDATORY $1 2>/dev/null | ./$BIN_BONUS $1
+	echo "----------\n"
+	fi
 	echo $CHECKER
 	echo ----------
 	./$CHECKER ""
@@ -178,6 +198,32 @@ run_error(){
 	err_test "1"
 	err_test "1 2 3 4 5"
 	err_test "$(printf "%s " $(seq 1 50))"
+}
+
+run_error_bonus(){
+	ARG="4 2 3 6 1"
+	printf "Some impossible moves\n"
+	echo pa; echo pa | ./$BIN_BONUS $ARG
+	echo
+	echo sb; echo sb | ./$BIN_BONUS $ARG
+	echo
+	echo ss; echo ss | ./$BIN_BONUS $ARG
+	echo
+	echo rb; echo rb | ./$BIN_BONUS $ARG
+	echo
+	echo rr; echo rr | ./$BIN_BONUS $ARG
+	echo
+	echo rrb; echo rrb | ./$BIN_BONUS $ARG
+	echo
+	i=0
+	while [ $i -lt 5 ]
+	do
+		ARG=$(printf "%s " "$(seq 1 50 | sort -R)")
+		printf "Shuffle\n"
+		./$BIN_MANDATORY $ARG | sort -R |./$BIN_BONUS $ARG
+		echo "================"
+		i=$((i+1))
+	done
 }
 
 CMD_MANDATORY="make all"
@@ -252,6 +298,41 @@ TEST_FLAGS=1
 BIN_MANDATORY="push_swap"
 BIN_BONUS="checker"
 
+# while [[ $# -gt 0 ]]; do
+#     case "$1" in
+#         -m|--mandatory)
+# 			if [ $BUILD_FLAGS = 0 ]
+# 			then
+# 	            BUILD_FLAGS=1
+# 			else
+# 				printf "-m/--mandatory option can not be executed with -b/--bonus" > 2
+# 			fi
+# 			TEST_FLAGS=1
+#             shift
+#             ;;
+#         -b|--bonus)
+#             BUILD_FLAGS=2
+# 			TEST_FLAGS=$((TEST_FLAGS*2))
+#             shift
+#             ;;
+#         --show-args)
+# 			if [ $BUILD_FLAGS = 0 ]
+# 			then
+# 	            BUILD_FLAGS=1
+# 			fi
+# 			TEST_FLAGS=$((TEST_FLAGS*3))
+#             ;;
+#         --)
+#             shift
+#             break
+#             ;;
+#         -*)
+#             echo "Error: Unknown option: $1"
+#             exit 1
+#             ;;
+#         *)
+#     esac
+# done
 if [ $# -gt 1 ]
 then
 	echo "$0: Multiple arguments are not supported, at least, currently"
@@ -277,6 +358,7 @@ then
 	build_program
 	run_tests
 	run_error
+	run_error_bonus
 elif [ "$1" = "-e" ] || [ "$1" = "--error" ]
 then
 	if [ -z "./push_swap" ]
@@ -285,6 +367,12 @@ then
 		build_program
 	fi
 	run_error
+	if [ "$(make -p | grep 'bonus:' | cut -d: -f1)" = "bonus" ]
+	then
+		BUILD_FLAGS=2
+		build_program
+		run_error_bonus
+	fi
 elif [ "$1" = "--show-arg" ]
 then
 	TEST_FLAGS=$((TEST_FLAGS*3))

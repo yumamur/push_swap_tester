@@ -68,7 +68,7 @@ norm_func(){
 		if [ $? != 0 ]
 		then
 			printf "\033[38;2;220;20;30;1mKO\033[m\n\n"
-			TEST_RESULT="Norminette"
+			TEST_RESULT="$TEST_RESULT:Norminette"
 		else
 			printf "\033[38;2;30;220;20;1mOK\033[m\n\n"
 		fi
@@ -220,6 +220,24 @@ run_error(){
 	./$CHECKER ""
 	echo "----------\n"
 	printf "$BIN_MANDATORY should print an error\n\n"
+	echo "\033[1m====================\033[m\n"
+	echo "ARG=\"          \""
+	echo $BIN_MANDATORY
+	echo ----------
+	./$BIN_MANDATORY "          "
+	echo "----------\n"
+	if [ $BUILD_FLAGS = 2 ]
+	then
+		echo $BIN_BONUS
+		echo ----------
+		./$BIN_MANDATORY "          " 2>/dev/null | ./$BIN_BONUS "          "
+		echo "----------\n"
+	fi
+	echo $CHECKER
+	echo ----------
+	./$CHECKER ""
+	echo "----------\n"
+	printf "$BIN_MANDATORY should print an error\n\n"
 	err_test "+"
 	err_test "4 2 4"
 	err_test "1 -0 5"
@@ -286,16 +304,16 @@ build_program()
 	if [ $? != 0 ]
 	then
 		printf "$0: $ERROR_MAKE\n"
-		return 1
+		exit
 	elif [ -z "$BIN_MANDATORY" ]
 	then
 		printf "$0: $ERROR_BIN_MANDATORY\n"
-		return 1
+		exit
 	fi
 	if [ $BUILD_FLAGS = 2 ] && [ -z "$BIN_BONUS" ]
 	then
 		printf "$0: $ERROR_BIN_BONUS\n"
-		return 1
+		exit
 	fi
 }
 
@@ -357,8 +375,8 @@ then
 	mkdir /tmp/push_swap_tester
 	cp -r ./* /tmp/push_swap_tester
 	cd /tmp/push_swap_tester
-	downloader
 	build_program
+	downloader
 	if [ $? = 0 ]
 	then
 		run_tests && run_error
@@ -376,8 +394,8 @@ then
 	cd /tmp/push_swap_tester
 	BUILD_FLAGS=2
 	TEST_FLAGS=$((TEST_FLAGS*2))
-	downloader
 	build_program
+	downloader
 	if [ $? = 0 ]
 	then
 		run_tests && run_error && run_error_bonus
@@ -393,8 +411,8 @@ then
 	mkdir -p /tmp/push_swap_tester
 	cp -r ./* /tmp/push_swap_tester
 	cd /tmp/push_swap_tester
-	downloader
 	build_program
+	downloader
 	if [ $? = 0 ]
 	then
 		run_error
@@ -408,7 +426,7 @@ then
 			run_error_bonus
 		fi
 	fi
-	if [ "$TEST_RESULT" != "" ]
+	if [ "$TEST_RESULT" != "\n" ]
 	then
 		echo "\n\nFailed tests"
 		echo $TEST_RESULT | tr ':' '\n'

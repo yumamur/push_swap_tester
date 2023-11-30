@@ -1,5 +1,8 @@
 #!/bin/sh
 
+range="2 3 4 5 10 50 100 300 500"
+#Tests will be done for these values, multiple times
+
 TEST_RESULT=
 
 ################################
@@ -100,8 +103,6 @@ ps_test(){
 		return 1
 	fi
 }
-
-range="2 3 4 5 10 50 100 300 500"
 
 run_tests(){
     norm_func
